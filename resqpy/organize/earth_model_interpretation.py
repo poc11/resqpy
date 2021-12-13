@@ -52,22 +52,36 @@ class EarthModelInterpretation(BaseResqpy):
 
     def is_equivalent(self, other, check_extra_metadata = True):
         """Returns True if this interpretation is essentially the same as the other; otherwise False."""
-        if other is None or not isinstance(other, EarthModelInterpretation):
+
+        is_earth_model_interpretation_condition = other is None or not isinstance(other, EarthModelInterpretation)
+        organization_feature_condition = ((self.organization_feature is not None) &
+                                          (not self.organization_feature.is_equivalent(other.organization_feature))) | (
+                                              other.organization_feature is not None)
+        root_condition = ((self.root is not None and other.root is not None) &
+                          (rqet.citation_title_for_node(self.root) != rqet.citation_title_for_node(other.root))) | (
+                              self.root is not None or other.root is not None)
+        extra_metadata_condtion = check_extra_metadata and not equivalent_extra_metadata(self, other)
+        if any([
+                is_earth_model_interpretation_condition, organization_feature_condition, root_condition,
+                extra_metadata_condtion
+        ]):
             return False
+        # if other is None or not isinstance(other, EarthModelInterpretation):
+        #     return False
         if self is other or bu.matching_uuids(self.uuid, other.uuid):
             return True
-        if self.organization_feature is not None:
-            if not self.organization_feature.is_equivalent(other.organization_feature):
-                return False
-        elif other.organization_feature is not None:
-            return False
-        if self.root is not None and other.root is not None:
-            if rqet.citation_title_for_node(self.root) != rqet.citation_title_for_node(other.root):
-                return False
-        elif self.root is not None or other.root is not None:
-            return False
-        if check_extra_metadata and not equivalent_extra_metadata(self, other):
-            return False
+        # if self.organization_feature is not None:
+        #     if not self.organization_feature.is_equivalent(other.organization_feature):
+        #         return False
+        # elif other.organization_feature is not None:
+        #     return False
+        # if self.root is not None and other.root is not None:
+        #     if rqet.citation_title_for_node(self.root) != rqet.citation_title_for_node(other.root):
+        #         return False
+        # elif self.root is not None or other.root is not None:
+        #     return False
+        # if check_extra_metadata and not equivalent_extra_metadata(self, other):
+        #     return False
         return self.domain == other.domain and equivalent_chrono_pairs(self.has_occurred_during,
                                                                        other.has_occurred_during)
 
@@ -91,13 +105,16 @@ class EarthModelInterpretation(BaseResqpy):
             return self.root
         emi = super().create_xml(add_as_part = False, originator = originator)
 
-        if self.organization_feature is not None:
-            of_root = self.organization_feature.root
-            if of_root is not None:
-                if organization_feature_root is None:
-                    organization_feature_root = of_root
-                else:
-                    assert of_root is organization_feature_root, 'organization feature mismatch'
+        organization_feature_root = self.__get_organization_feature_root(
+            organization_feature_root = organization_feature_root)
+
+        # if self.organization_feature is not None:
+        #     of_root = self.organization_feature.root
+        #     if of_root is not None:
+        #         if organization_feature_root is None:
+        #             organization_feature_root = of_root
+        #         else:
+        #             assert of_root is organization_feature_root, 'organization feature mismatch'
 
         assert organization_feature_root is not None, 'interpreted feature not established for model interpretation'
 
@@ -121,3 +138,15 @@ class EarthModelInterpretation(BaseResqpy):
                                                           'sourceObject')
 
         return emi
+
+    def __get_organization_feature_root(self, organization_feature_root):
+        """ Get the root xml node of the associated earth model feature."""
+
+        if self.organization_feature is not None:
+            of_root = self.organization_feature.root
+            if of_root is not None:
+                if organization_feature_root is None:
+                    organization_feature_root = of_root
+                else:
+                    assert of_root is organization_feature_root, 'organization feature mismatch'
+        return organization_feature_root
